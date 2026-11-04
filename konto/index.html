@@ -241,7 +241,26 @@
   const mode = params.get('mode');
   const code = params.get('oobCode');
 
+  // Vorschau zum Ansehen der Gestaltung (?vorschau): zeigt das Formular mit
+  // einer Beispiel-Adresse und spricht Firebase gar nicht an – es wird also
+  // nie ein echtes Passwort geaendert.
+  function vorschau() {
+    const p = document.querySelector('#s-passwort p');
+    p.textContent = t.pwText + ' ';
+    const b = document.createElement('strong');
+    b.textContent = 'name@beispiel.de';
+    p.appendChild(b);
+    zeige('s-passwort');
+    passwortFormular(null, {
+      confirmPasswordReset: () => new Promise((ok) => setTimeout(ok, 600)),
+    });
+  }
+
   async function los() {
+    if (params.has('vorschau')) {
+      vorschau();
+      return;
+    }
     if (!mode || !code) {
       ergebnis('🔗', t.kaputtTitel, t.kaputtText);
       return;
