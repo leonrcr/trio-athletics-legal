@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0A0A14">
+<title>trio athletics – Konto</title>
+<!--
+  Seite fuer die Links aus den Konto-E-Mails von trio athletics (Passwort
+  zuruecksetzen, E-Mail bestaetigen). Firebase haengt an den Link
+  ?mode=…&oobCode=…&lang=… an; diese Seite erledigt den Rest mit dem
+  Firebase-Web-SDK. Gestaltet wie die App: dunkel, Electric Blue, die drei
+  Ringe als Zeichen. Keine fremden Schriften oder Bilder – auf dem iPhone
+  nutzt die Seite die abgerundete Systemschrift, wie die App.
+-->
+<style>
+  :root {
+    --grund: #0A0A14;
+    --karte: #161B26;
+    --linie: rgba(255, 255, 255, 0.08);
+    --text: #ECEDF2;
+    --text-2: #9BA3B4;
+    --blau: #2E9BFF;
+    --rot: #FF3B30;
+    --gruen: #30D158;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background:
+      radial-gradient(120% 70% at 50% -10%, rgba(46, 155, 255, 0.22), transparent 60%),
+      var(--grund);
+    color: var(--text);
+    font-family: ui-rounded, "SF Pro Rounded", -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 32px 20px calc(32px + env(safe-area-inset-bottom));
+  }
+  main { width: 100%; max-width: 400px; }
+  .kopf { text-align: center; margin-bottom: 28px; }
+  .zeichen {
+    width: 72px; height: 72px; border-radius: 18px; margin: 0 auto 18px;
+    background: linear-gradient(135deg, #4FB0FF, #1B6FE0 55%, #0E3F9E);
+    display: grid; place-items: center;
+    box-shadow: 0 14px 40px -12px rgba(46, 155, 255, 0.6);
+  }
+  .wortmarke { font-size: 28px; color: #fff; letter-spacing: 0.5px; }
+  .wortmarke b { font-weight: 800; letter-spacing: -1px; }
+  .wortmarke span { font-weight: 300; letter-spacing: 1px; }
+  .karte {
+    background: var(--karte);
+    border: 1px solid rgba(46, 155, 255, 0.18);
+    border-radius: 22px;
+    padding: 24px 20px;
+    box-shadow: 0 24px 60px -30px rgba(0, 0, 0, 0.8);
+  }
+  h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.4px; margin: 0 0 6px; }
+  p { margin: 0; line-height: 1.45; color: var(--text-2); font-size: 15px; }
+  p strong { color: var(--text); font-weight: 600; }
+  label { display: block; font-size: 13px; color: var(--text-2); margin: 20px 0 6px; }
+  .feld { position: relative; }
+  input {
+    width: 100%; font: inherit; font-size: 16px; color: var(--text);
+    background: #1E2533; border: 1px solid var(--linie); border-radius: 12px;
+    padding: 14px 52px 14px 14px; outline: none;
+  }
+  input:focus { border-color: var(--blau); }
+  .zeigen {
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    background: none; border: 0; color: var(--text-2); font: inherit; font-size: 13px;
+    padding: 8px; cursor: pointer;
+  }
+  .regeln { list-style: none; padding: 0; margin: 14px 0 0; display: grid; gap: 6px; }
+  .regeln li { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-2); }
+  .regeln li::before {
+    content: ""; width: 14px; height: 14px; border-radius: 5px; flex: none;
+    border: 1px solid rgba(255, 255, 255, 0.22); transition: all .2s;
+  }
+  .regeln li.ok { color: var(--text); }
+  .regeln li.ok::before {
+    content: "✓"; background: var(--gruen); border-color: var(--gruen);
+    color: #0A0E17; font-size: 11px; font-weight: 900;
+    display: inline-grid; place-items: center;
+  }
+  button.haupt {
+    width: 100%; margin-top: 22px; font: inherit; font-size: 16px; font-weight: 700;
+    color: #fff; background: var(--blau); border: 0; border-radius: 12px; padding: 15px;
+    cursor: pointer; transition: opacity .15s;
+  }
+  button.haupt:disabled { opacity: 0.45; cursor: default; }
+  .fehler { color: var(--rot); font-size: 14px; margin-top: 12px; min-height: 1em; }
+  .symbol { font-size: 40px; text-align: center; margin-bottom: 10px; }
+  .fuss { text-align: center; margin-top: 22px; font-size: 12px; color: #5b6475; }
+  .fuss a { color: var(--text-2); }
+  [hidden] { display: none !important; }
+  .laden { display: flex; justify-content: center; padding: 18px 0 6px; }
+  .laden i {
+    width: 26px; height: 26px; border-radius: 50%;
+    border: 3px solid rgba(46, 155, 255, 0.25); border-top-color: var(--blau);
+    animation: drehen .9s linear infinite;
+  }
+  @keyframes drehen { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<main>
+  <div class="kopf">
+    <div class="zeichen" aria-hidden="true">
+      <!-- Die drei Ringe wie im App-Symbol. -->
+      <svg width="54" height="54" viewBox="0 0 100 100" fill="none" stroke="#fff" stroke-width="7">
+        <circle cx="50" cy="37" r="22"/>
+        <circle cx="38.7" cy="56.5" r="22"/>
+        <circle cx="61.3" cy="56.5" r="22"/>
+      </svg>
+    </div>
+    <div class="wortmarke"><b>trio</b><span>athletics</span></div>
+  </div>
+
+  <div class="karte">
+    <!-- Laden -->
+    <section id="s-laden">
+      <div class="laden"><i></i></div>
+    </section>
+
+    <!-- Neues Passwort festlegen -->
+    <section id="s-passwort" hidden>
+      <h1 data-t="pwTitel"></h1>
+      <p data-t="pwText"></p>
+      <form id="form" novalidate>
+        <label for="pw" data-t="pwFeld"></label>
+        <div class="feld">
+          <input id="pw" type="password" autocomplete="new-password" required>
+          <button type="button" class="zeigen" id="zeigen" data-t="zeigen"></button>
+        </div>
+        <ul class="regeln" id="regeln">
+          <li data-regel="laenge" data-t="rLaenge"></li>
+          <li data-regel="grossklein" data-t="rGrossKlein"></li>
+          <li data-regel="zahl" data-t="rZahl"></li>
+          <li data-regel="sonder" data-t="rSonder"></li>
+        </ul>
+        <div class="fehler" id="fehler" role="alert"></div>
+        <button class="haupt" id="speichern" type="submit" disabled data-t="speichern"></button>
+      </form>
+    </section>
+
+    <!-- Erfolg / Hinweis -->
+    <section id="s-ergebnis" hidden>
+      <div class="symbol" id="e-symbol"></div>
+      <h1 id="e-titel"></h1>
+      <p id="e-text"></p>
+    </section>
+  </div>
+
+  <div class="fuss">
+    <a href="../" data-t="datenschutz"></a>
+  </div>
+</main>
+
+<script type="module">
+  const texte = {
+    de: {
+      pwTitel: 'Neues Passwort',
+      pwText: 'für dein Konto',
+      pwFeld: 'Neues Passwort',
+      zeigen: 'Zeigen', verbergen: 'Verbergen',
+      rLaenge: 'Mindestens 10 Zeichen (empfohlen, Pflicht sind 6)',
+      rGrossKlein: 'Groß- und Kleinbuchstaben',
+      rZahl: 'Eine Zahl',
+      rSonder: 'Ein Sonderzeichen',
+      speichern: 'Passwort speichern',
+      okTitel: 'Passwort geändert',
+      okText: 'Öffne trio athletics und melde dich mit deinem neuen Passwort an.',
+      emailTitel: 'E-Mail bestätigt',
+      emailText: 'Danke! Du kannst diese Seite schließen und zur App zurückkehren.',
+      wiederTitel: 'E-Mail-Adresse wiederhergestellt',
+      wiederText: 'Deine vorherige E-Mail-Adresse gilt wieder. Ändere zur Sicherheit am besten auch dein Passwort.',
+      altTitel: 'Link nicht mehr gültig',
+      altText: 'Der Link ist abgelaufen oder wurde schon benutzt. Fordere in der App unter „Passwort vergessen?“ einfach einen neuen an.',
+      kaputtTitel: 'Unvollständiger Link',
+      kaputtText: 'Dieser Link ist unvollständig. Öffne ihn bitte direkt aus der E-Mail.',
+      zuKurz: 'Das Passwort braucht mindestens 6 Zeichen.',
+      fehlerAllg: 'Das hat nicht geklappt. Prüf deine Internetverbindung und versuch es noch einmal.',
+      datenschutz: 'Datenschutzerklärung',
+    },
+    en: {
+      pwTitel: 'New password',
+      pwText: 'for your account',
+      pwFeld: 'New password',
+      zeigen: 'Show', verbergen: 'Hide',
+      rLaenge: 'At least 10 characters (recommended, 6 required)',
+      rGrossKlein: 'Upper and lower case letters',
+      rZahl: 'A number',
+      rSonder: 'A special character',
+      speichern: 'Save password',
+      okTitel: 'Password changed',
+      okText: 'Open trio athletics and sign in with your new password.',
+      emailTitel: 'Email confirmed',
+      emailText: 'Thanks! You can close this page and go back to the app.',
+      wiederTitel: 'Email address restored',
+      wiederText: 'Your previous email address is active again. To be safe, also change your password.',
+      altTitel: 'Link no longer valid',
+      altText: 'The link has expired or was already used. Just request a new one in the app via “Forgot password?”.',
+      kaputtTitel: 'Incomplete link',
+      kaputtText: 'This link is incomplete. Please open it directly from the email.',
+      zuKurz: 'The password needs at least 6 characters.',
+      fehlerAllg: 'That didn\'t work. Check your internet connection and try again.',
+      datenschutz: 'Privacy policy',
+    },
+  };
+
+  const params = new URLSearchParams(location.search);
+  const sprache = (params.get('lang') || navigator.language || 'de').toLowerCase().startsWith('de') ? 'de' : 'en';
+  const t = texte[sprache];
+  document.documentElement.lang = sprache;
+  document.querySelectorAll('[data-t]').forEach((el) => { el.textContent = t[el.dataset.t]; });
+
+  const zeige = (id) => {
+    for (const s of ['s-laden', 's-passwort', 's-ergebnis']) {
+      document.getElementById(s).hidden = s !== id;
+    }
+  };
+  const ergebnis = (symbol, titel, text) => {
+    document.getElementById('e-symbol').textContent = symbol;
+    document.getElementById('e-titel').textContent = titel;
+    document.getElementById('e-text').textContent = text;
+    zeige('s-ergebnis');
+  };
+
+  // Gleiche Merkmale wie bei der Registrierung in der App.
+  const regeln = {
+    laenge: (v) => [...v].length >= 10,
+    grossklein: (v) => /\p{Ll}/u.test(v) && /\p{Lu}/u.test(v),
+    zahl: (v) => /\p{N}/u.test(v),
+    sonder: (v) => /[^\p{L}\p{N}\s]/u.test(v),
+  };
+
+  const mode = params.get('mode');
+  const code = params.get('oobCode');
+
+  async function los() {
+    if (!mode || !code) {
+      ergebnis('🔗', t.kaputtTitel, t.kaputtText);
+      return;
+    }
+    let auth, fb;
+    try {
+      const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js');
+      fb = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js');
+      const app = initializeApp({
+        apiKey: 'AIzaSyDeCNGLpUVzwpuUHL7nF0JuiD1i7v7BrMU',
+        authDomain: 'trio-athletics.firebaseapp.com',
+        projectId: 'trio-athletics',
+        appId: '1:528535544236:web:7199f2ca6d8bbc97d8da09',
+      });
+      auth = fb.getAuth(app);
+      auth.languageCode = sprache;
+    } catch (e) {
+      ergebnis('⚠️', t.altTitel, t.fehlerAllg);
+      return;
+    }
+
+    try {
+      if (mode === 'resetPassword') {
+        const email = await fb.verifyPasswordResetCode(auth, code);
+        const p = document.querySelector('#s-passwort p');
+        p.textContent = t.pwText + ' ';
+        const b = document.createElement('strong');
+        b.textContent = email;
+        p.appendChild(b);
+        zeige('s-passwort');
+        passwortFormular(auth, fb);
+      } else if (mode === 'verifyEmail') {
+        await fb.applyActionCode(auth, code);
+        ergebnis('✅', t.emailTitel, t.emailText);
+      } else if (mode === 'recoverEmail') {
+        await fb.checkActionCode(auth, code);
+        await fb.applyActionCode(auth, code);
+        ergebnis('✅', t.wiederTitel, t.wiederText);
+      } else {
+        ergebnis('🔗', t.kaputtTitel, t.kaputtText);
+      }
+    } catch (e) {
+      ergebnis('⏳', t.altTitel, t.altText);
+    }
+  }
+
+  function passwortFormular(auth, fb) {
+    const feld = document.getElementById('pw');
+    const knopf = document.getElementById('speichern');
+    const fehler = document.getElementById('fehler');
+    const zeigenKnopf = document.getElementById('zeigen');
+
+    feld.addEventListener('input', () => {
+      const v = feld.value;
+      document.querySelectorAll('#regeln li').forEach((li) => {
+        li.classList.toggle('ok', regeln[li.dataset.regel](v));
+      });
+      knopf.disabled = v.length < 6;
+      fehler.textContent = '';
+    });
+    zeigenKnopf.addEventListener('click', () => {
+      const sichtbar = feld.type === 'text';
+      feld.type = sichtbar ? 'password' : 'text';
+      zeigenKnopf.textContent = sichtbar ? t.zeigen : t.verbergen;
+    });
+    document.getElementById('form').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      if (feld.value.length < 6) { fehler.textContent = t.zuKurz; return; }
+      knopf.disabled = true;
+      try {
+        await fb.confirmPasswordReset(auth, code, feld.value);
+        ergebnis('✅', t.okTitel, t.okText);
+      } catch (e) {
+        knopf.disabled = false;
+        if (e && e.code === 'auth/weak-password') fehler.textContent = t.zuKurz;
+        else if (e && (e.code === 'auth/expired-action-code' || e.code === 'auth/invalid-action-code')) ergebnis('⏳', t.altTitel, t.altText);
+        else fehler.textContent = t.fehlerAllg;
+      }
+    });
+    feld.focus();
+  }
+
+  los();
+</script>
+</body>
+</html>
